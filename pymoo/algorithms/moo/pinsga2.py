@@ -62,6 +62,7 @@ class PINSGA2(GeneticAlgorithm):
                  ranking_type='pairwise',
                  presi_signs=None,
                  automated_dm=None,
+                 callback=None,
                  **kwargs):
         
         self.survival = RankAndCrowding(nds=NonDominatedSorting(dominator=VFDominator(self)))
@@ -75,6 +76,7 @@ class PINSGA2(GeneticAlgorithm):
             survival=self.survival,
             output=output,
             advance_after_initial_infill=True,
+            callback=callback,
             **kwargs)
 
         self.termination = DefaultMultiObjectiveTermination()
@@ -88,6 +90,7 @@ class PINSGA2(GeneticAlgorithm):
         self.tau = tau
         self.eta = eta
         self.eta_F = []
+        self.paused_F = None
         self.vf_res = None
         self.v2 = None
         self.vf_plot_flag = False
@@ -96,6 +99,8 @@ class PINSGA2(GeneticAlgorithm):
         self.prev_pop = None
         self.fronts = []
         self.eps_max = eps_max
+        
+        self.callback = callback
 
         if automated_dm is not None:
             automated_dm.get_pairwise_ranks_func = self._get_pairwise_ranks
@@ -131,11 +136,17 @@ class PINSGA2(GeneticAlgorithm):
     def _get_pairwise_ranks(F, presi_signs, dm=None):
 
         if not dm:
-                                  
+
             dm = lambda F: input("\nWhich solution do you like best?\n" + \
                                     f"[a] {F[0]}\n" +  \
                                     f"[b] {F[1]}\n" + \
                                      "[c] These solutions are equivalent.\n--> " )
+            
+            # # I found the scientific notation painful
+            # dm = lambda F: input("\nWhich solution do you like best?\n" + \
+            #                         f"[a] {''.join([f'{val:.3f}' for val in F[0]])}\n" + \
+            #                         f"[b] {''.join([f'{val:.3f}' for val in F[1]])}\n" + \
+            #                          "[c] These solutions are equivalent.\n--> " )
 
         # initialize empty ranking
         _ranks = []
@@ -264,6 +275,9 @@ class PINSGA2(GeneticAlgorithm):
         self.prev_pop = self.pop
 
         dm_time = self.n_gen % 10 == 0
+        
+        # Trigger Callback after appropriate info has been updates
+        self.callback.notify(self)
 
         # Check whether we have more than one solution
         if dm_time and len(self.eta_F) < 2: 
